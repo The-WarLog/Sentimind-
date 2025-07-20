@@ -6,7 +6,7 @@ from . import schemas
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-async def get_analysis_from_gemini(ticket_text: str) -> schemas.AnalysisResults:
+async def get_analysis_from_gemini(ticket_text: str) -> schemas.AnalysisResult:
     model = genai.GenerativeModel('gemini-2.0-flash')
     prompt = f"""
     Analyze the ticket and return a single, valid JSON object with keys: "emotion", "summary", "topic", "urgency_score".
