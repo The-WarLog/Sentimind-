@@ -147,7 +147,7 @@ export default function App() {
                         </form>
                     </div>
                     <div className="bg-gray-800/40 p-6 rounded-xl border border-gray-700">
-                        <h2 className="text-xl font-bold mb-4">Analyze Batch File (.txt)</h2>
+                        <h2 className="text-xl font-bold mb-4">Upload Analyze File (.txt)</h2>
                         <div className="flex flex-col items-center justify-center h-full">
                              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".txt" className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30" disabled={isLoading} />
                              <p className="text-xs text-gray-500 mt-2 text-center">Please upload a .txt file where each line is a separate customer feedback entry.</p>
