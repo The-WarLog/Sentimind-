@@ -1,12 +1,12 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete # ADDED: import delete
+from sqlalchemy import select, delete 
 from . import models, schemas
 
 async def get_all_analyses(db: AsyncSession) -> list[models.Analysis]:
     result = await db.execute(select(models.Analysis).order_by(models.Analysis.created_at.desc()))
     return list(result.scalars().all())
 
-# NEW: Function to delete all records
+
 async def delete_all_analyses(db: AsyncSession):
     await db.execute(delete(models.Analysis))
     await db.commit()
