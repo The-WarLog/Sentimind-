@@ -1,19 +1,26 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete # ADDED: import delete
 from . import models, schemas
 
-async def create_pending_analysis(db: AsyncSession) -> models.Analysis:
-    db_analysis = models.Analysis(status="PENDING")
+async def get_all_analyses(db: AsyncSession) -> list[models.Analysis]:
+    result = await db.execute(select(models.Analysis).order_by(models.Analysis.created_at.desc()))
+    return list(result.scalars().all())
+
+# NEW: Function to delete all records
+async def delete_all_analyses(db: AsyncSession):
+    await db.execute(delete(models.Analysis))
+    await db.commit()
+
+async def create_pending_analysis(db: AsyncSession, ticket_text: str) -> models.Analysis:
+    db_analysis = models.Analysis(status="PENDING", ticket_text=ticket_text)
     db.add(db_analysis)
     await db.commit()
-    await db.refresh(db_analysis) 
+    await db.refresh(db_analysis)
     return db_analysis
 
 async def get_analysis(db: AsyncSession, analysis_id: int) -> models.Analysis | None:
-   
     result = await db.execute(select(models.Analysis).where(models.Analysis.id == analysis_id))
     return result.scalar_one_or_none()
-
 
 async def update_analysis_result(db: AsyncSession, analysis_id: int, result: schemas.AnalysisResult):
     db_analysis = await get_analysis(db, analysis_id)
@@ -29,6 +36,5 @@ async def update_analysis_error(db: AsyncSession, analysis_id: int, error_messag
     db_analysis = await get_analysis(db, analysis_id)
     if db_analysis:
         db_analysis.status = "FAILED"
-       
         db_analysis.error_message = error_message
         await db.commit()
