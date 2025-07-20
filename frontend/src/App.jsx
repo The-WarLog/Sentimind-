@@ -160,7 +160,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-900 text-white font-sans flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-2xl text-center">
-        <h1 className="text-4xl md:text-5xl font-bold mb-2">Customer Sentiment Watchdog</h1>
+        <h1 className="text-4xl md:text-5xl font-bold mb-2">SentiMind</h1>
         <p className="text-lg text-gray-400 mb-8">
           Enter customer feedback, a support ticket, or any text to analyze its sentiment in real-time.
         </p>
