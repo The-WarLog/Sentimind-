@@ -1,15 +1,22 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete 
+from sqlalchemy import select, delete
 from . import models, schemas
 
 async def get_all_analyses(db: AsyncSession) -> list[models.Analysis]:
     result = await db.execute(select(models.Analysis).order_by(models.Analysis.created_at.desc()))
     return list(result.scalars().all())
 
-
 async def delete_all_analyses(db: AsyncSession):
     await db.execute(delete(models.Analysis))
     await db.commit()
+
+# NEW: Function to delete a single analysis by its ID
+async def delete_analysis_by_id(db: AsyncSession, analysis_id: int):
+    item_to_delete = await get_analysis(db, analysis_id)
+    if item_to_delete:
+        await db.delete(item_to_delete)
+        await db.commit()
+    return item_to_delete
 
 async def create_pending_analysis(db: AsyncSession, ticket_text: str) -> models.Analysis:
     db_analysis = models.Analysis(status="PENDING", ticket_text=ticket_text)
