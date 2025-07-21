@@ -8,6 +8,7 @@ const LoadingSpinner = () => <div className="animate-spin rounded-full h-5 w-5 b
 const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
 const AlertIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
 
+
 // --- History Item Sub-Component ---
 const HistoryItem = ({ item, onDelete }) => {
     const getStatusPill = (status) => {
@@ -28,7 +29,14 @@ const HistoryItem = ({ item, onDelete }) => {
 
     return (
         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 w-full text-left transition hover:border-indigo-500/50 relative group">
-            <button onClick={() => onDelete(item.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-400 bg-gray-900/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" title="Delete this item"><TrashIcon /></button>
+            {/* UPDATED: Improved delete button styling and animation */}
+            <button 
+                onClick={() => onDelete(item.id)}
+                className="absolute top-2 right-2 p-1.5 text-gray-500 bg-gray-900/50 rounded-full opacity-50 group-hover:opacity-100 group-hover:scale-110 group-hover:bg-red-500/30 group-hover:text-red-300 transition-all duration-200 ease-in-out"
+                title="Delete this item"
+            >
+                <TrashIcon />
+            </button>
             <div className="flex justify-between items-start gap-4">
                 <p className="text-gray-300 italic flex-1 break-words pr-6">"{item.ticket_text}"</p>
                 <span className={`text-xs font-bold px-2 py-1 rounded-full shrink-0 ${getStatusPill(item.status)}`}>{item.status}</span>
@@ -55,9 +63,6 @@ export default function App() {
     const [history, setHistory] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    // NEW: Central state for the status message
-    const [statusMessage, setStatusMessage] = useState('System is ready. Submit a ticket or file to begin.');
-
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -79,25 +84,6 @@ export default function App() {
     [history]);
     
     const hasCompletedAnalyses = useMemo(() => history.some(item => item.status === 'COMPLETE'), [history]);
-
-    // This effect hook updates the status message based on the app's state
-    useEffect(() => {
-        if (error) {
-            setStatusMessage(`Analysis failed: ${error}`);
-        } else if (isLoading) {
-            setStatusMessage('Submitting request to the server...');
-        } else if (history.some(item => item.status === 'PENDING')) {
-            setStatusMessage('Analysis is pending... please wait.');
-        } else if (history.length > 0 && history.every(item => item.status !== 'PENDING')) {
-            // Check if the latest completed item is recent
-            const latestCompleted = history.find(item => item.status === 'COMPLETE');
-            if (latestCompleted && (new Date() - new Date(latestCompleted.created_at)) < 10000) {
-                 setStatusMessage('Analysis of the last ticket is complete.');
-            } else {
-                 setStatusMessage('System is ready. Submit a ticket or file to begin.');
-            }
-        }
-    }, [history, isLoading, error]);
 
     const handleTextSubmit = async (e) => {
         e.preventDefault();
@@ -121,8 +107,15 @@ export default function App() {
     const handleFileSubmit = async () => {
         if (!file) return setError('Please select a file first.');
         setError(''); setIsLoading(true);
+        const formData = new FormData();
+        formData.append('file', file);
         try {
             const response = await fetch('/api/analyze-file', { method: 'POST', body: formData });
+            if (!response.ok) {
+                 const errData = await response.json().catch(() => ({}));
+                 throw new Error(errData.detail || 'Failed to submit file for analysis.');
+            }
+            setFile(null);
             if (fileInputRef.current) fileInputRef.current.value = "";
         } catch (err) { setError(err.message); } finally { setIsLoading(false); }
     };
@@ -159,26 +152,13 @@ export default function App() {
         } catch (err) { setError(err.message); }
     };
 
-    // NEW: Function to determine the style of the status panel
-    const getStatusPanelStyle = () => {
-        if (error) return 'bg-red-500/20 border-red-500/50 text-red-300';
-        if (isLoading || history.some(item => item.status === 'PENDING')) return 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300';
-        return 'bg-green-500/20 border-green-500/50 text-green-300';
-    };
-
     return (
         <div className="min-h-screen bg-gray-900 text-white font-sans flex flex-col items-center p-4 md:p-8">
             <div className="w-full max-w-7xl mx-auto">
-                <div className="text-center mb-8">
+                <div className="text-center mb-12">
                     <h1 className="text-4xl md:text-5xl font-bold mb-2">SentiMind AI</h1>
-                    <p className="text-lg text-gray-400 mb-6">Your complete customer sentiment analysis platform.</p>
-                    
-                    {/* NEW: Status Dashboard */}
-                    <div className={`p-4 rounded-xl border mb-8 transition-colors duration-500 ${getStatusPanelStyle()}`}>
-                        <p className="font-semibold">{statusMessage}</p>
-                    </div>
+                    <p className="text-lg text-gray-400">Your complete customer sentiment analysis platform.</p>
                 </div>
-                
                 <div className="grid md:grid-cols-2 gap-8 mb-12">
                     <div className="bg-gray-800/40 p-6 rounded-xl border border-gray-700">
                         <h2 className="text-xl font-bold mb-4">Analyze Single Ticket</h2>
@@ -197,6 +177,7 @@ export default function App() {
                         </div>
                     </div>
                 </div>
+                {error && <div className="bg-red-500/20 text-red-300 p-3 rounded-lg mb-4 text-center">{error}</div>}
                 
                 <div className="grid lg:grid-cols-2 gap-8">
                     <div className="bg-gray-800/20 p-4 rounded-xl border border-gray-700 flex flex-col h-[70vh]">
