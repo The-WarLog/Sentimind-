@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
-from . import models,schemas
+from . import models, schemas # FIXED: Added 'schemas' to the import list
 
 async def get_all_analyses(db: AsyncSession) -> list[models.Analysis]:
     result = await db.execute(select(models.Analysis).order_by(models.Analysis.created_at.desc()))
@@ -10,7 +10,6 @@ async def delete_all_analyses(db: AsyncSession):
     await db.execute(delete(models.Analysis))
     await db.commit()
 
-# UPDATED: The threshold is now passed as an argument
 async def delete_alerts(db: AsyncSession, urgency_threshold: int):
     stmt = delete(models.Analysis).where(models.Analysis.urgency_score >= urgency_threshold)
     await db.execute(stmt)
@@ -42,4 +41,11 @@ async def update_analysis_result(db: AsyncSession, analysis_id: int, result: sch
         db_analysis.summary = result.summary
         db_analysis.topic = result.topic
         db_analysis.urgency_score = result.urgency_score
+        await db.commit()
+
+async def update_analysis_error(db: AsyncSession, analysis_id: int, error_message: str):
+    db_analysis = await get_analysis(db, analysis_id)
+    if db_analysis:
+        db_analysis.status = "FAILED"
+        db_analysis.error_message = error_message
         await db.commit()
