@@ -7,6 +7,7 @@ from . import crud, models, schemas, gemini_analyzer
 from .database import AsyncSessionLocal, engine, Base
 
 app = FastAPI()
+ALERT_THRESHOLD = 7 # REVERTED: Alert threshold is now 7/10
 
 @app.on_event("startup")
 async def on_startup():
@@ -43,7 +44,11 @@ async def clear_history(db: AsyncSession = Depends(get_db)):
     await crud.delete_all_analyses(db)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-# NEW: Endpoint to delete a single analysis
+@app.delete("/api/analyses/alerts", status_code=status.HTTP_204_NO_CONTENT)
+async def clear_alerts(db: AsyncSession = Depends(get_db)):
+    await crud.delete_alerts(db, urgency_threshold=ALERT_THRESHOLD)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
 @app.delete("/api/analysis/{analysis_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_analysis(analysis_id: int, db: AsyncSession = Depends(get_db)):
     result = await crud.delete_analysis_by_id(db, analysis_id)
@@ -64,9 +69,27 @@ async def download_all_analyses(db: AsyncSession = Depends(get_db)):
                        f"Original Ticket: \"{analysis.ticket_text}\"\n"
                        f"Emotion: {analysis.emotion}\n"
                        f"Topic: {analysis.topic}\n"
-                       f"Urgency: {analysis.urgency_score}/10\n"
+                       f"Urgency: {analysis.urgency_score}/10\n" # REVERTED
                        f"Summary: {analysis.summary}\n\n")
     return StreamingResponse(iter([full_report.encode('utf-8')]), media_type="text/plain", headers={"Content-Disposition": "attachment; filename=full_analysis_history.txt"})
+
+@app.get("/api/analyses/download-alerts")
+async def download_all_alerts(db: AsyncSession = Depends(get_db)):
+    all_analyses = await crud.get_all_analyses(db)
+    alerts = [a for a in all_analyses if a.status == "COMPLETE" and a.urgency_score >= ALERT_THRESHOLD]
+    if not alerts:
+        raise HTTPException(status_code=404, detail="No alerts available to download.")
+    
+    alert_report = "SentiMind AI - High-Urgency Alerts Report\n=============================================\n\n"
+    for analysis in alerts:
+        alert_report += (f"--- Analysis ID: {analysis.id} ---\n"
+                         f"Timestamp: {analysis.created_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                         f"Original Ticket: \"{analysis.ticket_text}\"\n"
+                         f"Emotion: {analysis.emotion}\n"
+                         f"Topic: {analysis.topic}\n"
+                         f"Urgency: {analysis.urgency_score}/10\n" # REVERTED
+                         f"Summary: {analysis.summary}\n\n")
+    return StreamingResponse(iter([alert_report.encode('utf-8')]), media_type="text/plain", headers={"Content-Disposition": "attachment; filename=high_urgency_alerts.txt"})
 
 @app.post("/api/analyze-text", status_code=202)
 async def submit_text_analysis(req: schemas.TicketRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
@@ -110,6 +133,6 @@ async def download_analysis_result(analysis_id: int, db: AsyncSession = Depends(
                f"-----------------\n"
                f"  - Emotion: {db_analysis.emotion}\n"
                f"  - Topic: {db_analysis.topic}\n"
-               f"  - Urgency Score: {db_analysis.urgency_score}/10\n"
+               f"  - Urgency Score: {db_analysis.urgency_score}/10\n" # REVERTED
                f"  - Summary: {db_analysis.summary}\n")
     return StreamingResponse(iter([content.encode('utf-8')]), media_type="text/plain", headers={"Content-Disposition": f"attachment; filename=analysis-{analysis_id}.txt"})

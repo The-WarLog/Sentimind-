@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 
 // --- Helper Icon Components ---
 const UploadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
-const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
+const DownloadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>;
 const DownloadAllIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h10a4 4 0 014 4v5a4 4 0 01-4 4H7z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v4m0 0l-2-2m2 2l2-2" /></svg>;
 const LoadingSpinner = () => <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>;
 const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>;
+const AlertIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>;
+
 
 // --- History Item Sub-Component ---
 const HistoryItem = ({ item, onDelete }) => {
@@ -17,16 +19,18 @@ const HistoryItem = ({ item, onDelete }) => {
             default: return 'bg-gray-500/20 text-gray-300';
         }
     };
+    
+    // REVERTED: Urgency thresholds now work on a 1-10 scale
+    const getUrgencyStyle = (score) => {
+        if (score >= 9) return 'text-red-400 bg-red-500/20';
+        if (score >= 7) return 'text-orange-400 bg-orange-500/20';
+        if (score >= 4) return 'text-yellow-400 bg-yellow-500/20';
+        return 'text-green-400 bg-green-500/20';
+    };
 
     return (
         <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 w-full text-left transition hover:border-indigo-500/50 relative group">
-            <button 
-                onClick={() => onDelete(item.id)}
-                className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-400 bg-gray-900/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Delete this item"
-            >
-                <TrashIcon />
-            </button>
+            <button onClick={() => onDelete(item.id)} className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-400 bg-gray-900/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" title="Delete this item"><TrashIcon /></button>
             <div className="flex justify-between items-start gap-4">
                 <p className="text-gray-300 italic flex-1 break-words pr-6">"{item.ticket_text}"</p>
                 <span className={`text-xs font-bold px-2 py-1 rounded-full shrink-0 ${getStatusPill(item.status)}`}>{item.status}</span>
@@ -36,12 +40,9 @@ const HistoryItem = ({ item, onDelete }) => {
                     <div className="flex items-center gap-x-4 gap-y-2 text-sm text-gray-400 flex-wrap">
                         <span className="font-semibold text-white capitalize bg-gray-700/50 px-2 py-1 rounded">Emotion: {item.result.emotion}</span>
                         <span className="font-semibold text-white capitalize bg-gray-700/50 px-2 py-1 rounded">Topic: {item.result.topic}</span>
-                        <span className="font-semibold text-white capitalize bg-gray-700/50 px-2 py-1 rounded">Urgency: {item.result.urgency_score}/10</span>
+                        <span className={`font-bold capitalize px-2 py-1 rounded ${getUrgencyStyle(item.result.urgency_score)}`}>Urgency: {item.result.urgency_score}/10</span>
                     </div>
-                    <a href={`/api/analysis/${item.id}/download`} download className="flex items-center text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded-lg transition duration-300">
-                        <DownloadIcon />
-                        <span className="ml-1">Download</span>
-                    </a>
+                    <a href={`/api/analysis/${item.id}/download`} download className="flex items-center text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded-lg transition duration-300"><DownloadIcon /><span className="ml-1">Download</span></a>
                 </div>
             ) : null}
             {item.status === 'FAILED' && <div className="mt-2 text-sm text-red-400 break-words">Error: {item.error_message || 'An unknown error occurred.'}</div>}
@@ -71,6 +72,11 @@ export default function App() {
         const interval = setInterval(fetchHistory, 5000);
         return () => clearInterval(interval);
     }, []);
+    
+    // REVERTED: Alert threshold is now 7/10
+    const alerts = useMemo(() => 
+        history.filter(item => item.status === 'COMPLETE' && item.result && item.result.urgency_score >= 7),
+    [history]);
     
     const hasCompletedAnalyses = useMemo(() => history.some(item => item.status === 'COMPLETE'), [history]);
 
@@ -119,6 +125,16 @@ export default function App() {
         } catch (err) { setError(err.message); } finally { setIsLoading(false); }
     };
 
+    const handleClearAlerts = async () => {
+        if (!window.confirm("Are you sure you want to delete all high-urgency alerts?")) return;
+        setError(''); setIsLoading(true);
+        try {
+            const response = await fetch('/api/analyses/alerts', { method: 'DELETE' });
+            if (!response.ok) throw new Error('Failed to clear alerts.');
+            setHistory(currentHistory => currentHistory.filter(item => !(item.status === 'COMPLETE' && item.result && item.result.urgency_score >= 7)));
+        } catch (err) { setError(err.message); } finally { setIsLoading(false); }
+    };
+
     const handleDeleteItem = async (analysisId) => {
         if (!window.confirm("Are you sure you want to delete this item?")) return;
         setHistory(currentHistory => currentHistory.filter(item => item.id !== analysisId));
@@ -128,16 +144,16 @@ export default function App() {
             if (!response.ok) {
                 throw new Error('Failed to delete the item on the server.');
             }
-        } catch (err) {
-            setError(err.message);
-        }
+        } catch (err) { setError(err.message); }
     };
 
     return (
         <div className="min-h-screen bg-gray-900 text-white font-sans flex flex-col items-center p-4 md:p-8">
-            <div className="w-full max-w-4xl text-center">
-                <h1 className="text-4xl md:text-5xl font-bold mb-2">SentiMind AI</h1>
-                <p className="text-lg text-gray-400 mb-8">Your complete customer sentiment analysis platform.</p>
+            <div className="w-full max-w-7xl mx-auto">
+                <div className="text-center mb-12">
+                    <h1 className="text-4xl md:text-5xl font-bold mb-2">SentiMind AI</h1>
+                    <p className="text-lg text-gray-400">Your complete customer sentiment analysis platform.</p>
+                </div>
                 <div className="grid md:grid-cols-2 gap-8 mb-12">
                     <div className="bg-gray-800/40 p-6 rounded-xl border border-gray-700">
                         <h2 className="text-xl font-bold mb-4">Analyze Single Ticket</h2>
@@ -147,7 +163,7 @@ export default function App() {
                         </form>
                     </div>
                     <div className="bg-gray-800/40 p-6 rounded-xl border border-gray-700">
-                        <h2 className="text-xl font-bold mb-4">Upload Analyze File (.txt)</h2>
+                        <h2 className="text-xl font-bold mb-4">Analyze Batch File (.txt)</h2>
                         <div className="flex flex-col items-center justify-center h-full">
                              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".txt" className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30" disabled={isLoading} />
                              <p className="text-xs text-gray-500 mt-2 text-center">Please upload a .txt file where each line is a separate customer feedback entry.</p>
@@ -157,16 +173,45 @@ export default function App() {
                     </div>
                 </div>
                 {error && <div className="bg-red-500/20 text-red-300 p-3 rounded-lg mb-4 text-center">{error}</div>}
-                <div className="w-full">
-                    <div className="flex justify-between items-center mb-4">
-                        <h2 className="text-2xl font-bold">Analysis History</h2>
-                        <div className="flex items-center gap-x-2">
-                            {hasCompletedAnalyses && <a href="/api/analyses/download-all" download="full_analysis_history.txt" className="flex items-center text-sm bg-blue-600/80 hover:bg-blue-700 text-white font-semibold py-1 px-3 rounded-lg transition"><DownloadAllIcon/> Download All</a>}
-                            {history.length > 0 && <button onClick={handleClearHistory} className="flex items-center text-sm bg-red-600/80 hover:bg-red-700 disabled:bg-gray-600 text-white font-semibold py-1 px-3 rounded-lg transition" disabled={isLoading}><TrashIcon/> Clear History</button>}
+                
+                <div className="grid lg:grid-cols-2 gap-8">
+                    <div className="bg-gray-800/20 p-4 rounded-xl border border-gray-700 flex flex-col h-[70vh]">
+                        <div className="flex justify-between items-center mb-4 shrink-0">
+                            <h2 className="text-2xl font-bold text-orange-400">High-Urgency Alerts</h2>
+                            <div className="flex items-center gap-x-2">
+                                {alerts.length > 0 && <a href="/api/analyses/download-alerts" download="high_urgency_alerts.txt" className="flex items-center text-sm bg-blue-600/80 hover:bg-blue-700 text-white font-semibold py-1 px-3 rounded-lg transition"><DownloadAllIcon/> Download Alerts</a>}
+                                {alerts.length > 0 && <button onClick={handleClearAlerts} className="flex items-center text-sm bg-red-600/80 hover:bg-red-700 disabled:bg-gray-600 text-white font-semibold py-1 px-3 rounded-lg transition" disabled={isLoading}><AlertIcon /> Clear Alerts</button>}
+                            </div>
+                        </div>
+                        <div className="overflow-y-auto space-y-4 pr-2 flex-grow">
+                            {alerts.length > 0 ? (
+                                alerts.map(item => <HistoryItem key={item.id} item={item} onDelete={handleDeleteItem} />)
+                            ) : (
+                                <div className="text-gray-500 h-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-700 rounded-lg">
+                                    <p>No high-urgency alerts right now.</p>
+                                </div>
+                            )}
                         </div>
                     </div>
-                    <div className="space-y-4">
-                        {history.length > 0 ? (history.map(item => <HistoryItem key={item.id} item={item} onDelete={handleDeleteItem} />)) : (<div className="text-gray-500 p-8 border-2 border-dashed border-gray-700 rounded-lg"><p>No analyses yet.</p><p>Submit a ticket or upload a file to get started.</p></div>)}
+
+                    <div className="bg-gray-800/20 p-4 rounded-xl border border-gray-700 flex flex-col h-[70vh]">
+                        <div className="flex justify-between items-center mb-4 shrink-0">
+                            <h2 className="text-2xl font-bold">Full Analysis History</h2>
+                            <div className="flex items-center gap-x-2">
+                                {hasCompletedAnalyses && <a href="/api/analyses/download-all" download="full_analysis_history.txt" className="flex items-center text-sm bg-blue-600/80 hover:bg-blue-700 text-white font-semibold py-1 px-3 rounded-lg transition"><DownloadAllIcon/> Download All</a>}
+                                {history.length > 0 && <button onClick={handleClearHistory} className="flex items-center text-sm bg-red-600/80 hover:bg-red-700 disabled:bg-gray-600 text-white font-semibold py-1 px-3 rounded-lg transition" disabled={isLoading}><TrashIcon/> Clear All</button>}
+                            </div>
+                        </div>
+                        <div className="overflow-y-auto space-y-4 pr-2 flex-grow">
+                            {history.length > 0 ? (
+                                history.map(item => <HistoryItem key={item.id} item={item} onDelete={handleDeleteItem} />)
+                            ) : (
+                                <div className="text-gray-500 h-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-700 rounded-lg">
+                                    <p>No analyses yet.</p>
+                                    <p>Submit a ticket to get started.</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
