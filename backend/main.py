@@ -7,7 +7,7 @@ from . import crud, models, schemas, gemini_analyzer
 from .database import AsyncSessionLocal, engine, Base
 
 app = FastAPI()
-ALERT_THRESHOLD = 7 # REVERTED: Alert threshold is now 7/10
+ALERT_THRESHOLD = 7 
 
 @app.on_event("startup")
 async def on_startup():
@@ -69,27 +69,9 @@ async def download_all_analyses(db: AsyncSession = Depends(get_db)):
                        f"Original Ticket: \"{analysis.ticket_text}\"\n"
                        f"Emotion: {analysis.emotion}\n"
                        f"Topic: {analysis.topic}\n"
-                       f"Urgency: {analysis.urgency_score}/10\n" # REVERTED
+                       f"Urgency: {analysis.urgency_score}/100\n"
                        f"Summary: {analysis.summary}\n\n")
     return StreamingResponse(iter([full_report.encode('utf-8')]), media_type="text/plain", headers={"Content-Disposition": "attachment; filename=full_analysis_history.txt"})
-
-@app.get("/api/analyses/download-alerts")
-async def download_all_alerts(db: AsyncSession = Depends(get_db)):
-    all_analyses = await crud.get_all_analyses(db)
-    alerts = [a for a in all_analyses if a.status == "COMPLETE" and a.urgency_score >= ALERT_THRESHOLD]
-    if not alerts:
-        raise HTTPException(status_code=404, detail="No alerts available to download.")
-    
-    alert_report = "SentiMind AI - High-Urgency Alerts Report\n=============================================\n\n"
-    for analysis in alerts:
-        alert_report += (f"--- Analysis ID: {analysis.id} ---\n"
-                         f"Timestamp: {analysis.created_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
-                         f"Original Ticket: \"{analysis.ticket_text}\"\n"
-                         f"Emotion: {analysis.emotion}\n"
-                         f"Topic: {analysis.topic}\n"
-                         f"Urgency: {analysis.urgency_score}/10\n" # REVERTED
-                         f"Summary: {analysis.summary}\n\n")
-    return StreamingResponse(iter([alert_report.encode('utf-8')]), media_type="text/plain", headers={"Content-Disposition": "attachment; filename=high_urgency_alerts.txt"})
 
 @app.post("/api/analyze-text", status_code=202)
 async def submit_text_analysis(req: schemas.TicketRequest, bg: BackgroundTasks, db: AsyncSession = Depends(get_db)):
@@ -97,27 +79,28 @@ async def submit_text_analysis(req: schemas.TicketRequest, bg: BackgroundTasks, 
     bg.add_task(process_analysis, pa.id)
     return {"message": "Analysis started", "analysis_id": pa.id}
 
+# FIXED: This endpoint now correctly parses the uploaded file line by line.
 @app.post("/api/analyze-file", status_code=202)
 async def submit_file_analysis(bg: BackgroundTasks, db: AsyncSession = Depends(get_db), file: UploadFile = File(...)):
     contents = await file.read()
-    try: text_data = contents.decode('utf-8')
-    except UnicodeDecodeError: raise HTTPException(status_code=400, detail="Invalid file encoding. Please use UTF-8.")
-    all_lines = text_data.splitlines()
-    feedback_lines = []
-    is_original_ticket_section = False
-    for line in all_lines:
-        stripped_line = line.strip()
-        if stripped_line == "Original Ticket:": is_original_ticket_section = True; continue
-        if stripped_line.startswith("Analysis Results:"): is_original_ticket_section = False; continue
-        if is_original_ticket_section and stripped_line: feedback_lines.append(stripped_line.strip('"'))
+    try:
+        text_data = contents.decode('utf-8')
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid file encoding. Please use UTF-8.")
+    
+    # Simplified and corrected logic: Treat every non-empty line as a separate feedback entry.
+    feedback_lines = [line.strip() for line in text_data.splitlines() if line.strip()]
+
     if not feedback_lines:
-        feedback_lines = [line for line in all_lines if line.strip() and not line.startswith("---") and not line.startswith("===") and not line.startswith("Timestamp:") and not line.startswith("Emotion:") and not line.startswith("Topic:") and not line.startswith("Urgency:") and not line.startswith("Summary:")]
-    if not feedback_lines: raise HTTPException(status_code=400, detail="File is empty or contains no valid feedback lines.")
+        raise HTTPException(status_code=400, detail="The uploaded file is empty or contains no valid text.")
+
     analysis_ids = []
     for line in feedback_lines:
-        pa = await crud.create_pending_analysis(db, ticket_text=line)
-        bg.add_task(process_analysis, pa.id)
-        analysis_ids.append(pa.id)
+        # Create a new analysis record for each individual line of feedback
+        pending_analysis = await crud.create_pending_analysis(db, ticket_text=line)
+        bg.add_task(process_analysis, pending_analysis.id)
+        analysis_ids.append(pending_analysis.id)
+    
     return {"message": f"Started analysis for {len(feedback_lines)} tickets.", "analysis_ids": analysis_ids}
 
 @app.get("/api/analysis/{analysis_id}/download")
@@ -133,6 +116,6 @@ async def download_analysis_result(analysis_id: int, db: AsyncSession = Depends(
                f"-----------------\n"
                f"  - Emotion: {db_analysis.emotion}\n"
                f"  - Topic: {db_analysis.topic}\n"
-               f"  - Urgency Score: {db_analysis.urgency_score}/10\n" # REVERTED
+               f"  - Urgency Score: {db_analysis.urgency_score}/100\n"
                f"  - Summary: {db_analysis.summary}\n")
     return StreamingResponse(iter([content.encode('utf-8')]), media_type="text/plain", headers={"Content-Disposition": f"attachment; filename=analysis-{analysis_id}.txt"})
